@@ -105,20 +105,20 @@ public class LayerTwoManager implements LayerTwoService {
         for (Device d : devices) {
             /* Insert Firewall flow rule on every devices */
 
-            // FlowRule fr = DefaultFlowRule.builder()
-            //         .withSelector(DefaultTrafficSelector.builder()
-            //                 .matchEthType(TYPE_IPV4)
-            //                 .matchIPProtocol(IPv4.PROTOCOL_TCP)
-            //                 .matchIPSrc(firstIpAddress.toIpPrefix())
-            //                 .matchIPDst(secondIpAddress.toIpPrefix())
-            //                 .matchTcpDst(TpPort.tpPort((int) portNumber.toLong()))
-            //                 .build())
-            //         .withTreatment(DefaultTrafficTreatment.builder().drop().build())
-            //         .forDevice(d.id()).withPriority(PacketPriority.CONTROL.priorityValue())
-            //         .makeTemporary(30)
-            //         .fromApp(appId).build();
-            // log.info(" On device {} install firewall rule: {}", d.id(), fr);
-            // flowRuleService.applyFlowRules(fr);
+            FlowRule fr = DefaultFlowRule.builder()
+                    .withSelector(DefaultTrafficSelector.builder()
+                            .matchEthType(TYPE_IPV4)
+                            .matchIPProtocol(IPv4.PROTOCOL_TCP)
+                            .matchIPSrc(firstIpAddress.toIpPrefix())
+                            .matchIPDst(secondIpAddress.toIpPrefix())
+                            .matchTcpDst(TpPort.tpPort((int) portNumber.toLong()))
+                            .build())
+                    .withTreatment(DefaultTrafficTreatment.builder().drop().build())
+                    .forDevice(d.id()).withPriority(PacketPriority.CONTROL.priorityValue())
+                    .makeTemporary(30)
+                    .fromApp(appId).build();
+            log.info(" On device {} install firewall rule: {}", d.id(), fr);
+            flowRuleService.applyFlowRules(fr);
         }
         return true;
     }
@@ -209,6 +209,19 @@ public class LayerTwoManager implements LayerTwoService {
              *      Insert the FlowRule to the designated output port.
              * Otherwise, we haven't learnt the output port yet. We need to flood this packet to all the ports.
              */
+             if (macTable.containsKey(dstMac)) {
+               outPort = macTable.get(dstMac).getPortNumber();
+               pc.treatmentBuilder().setOutput(outPort);
+               FlowRule fr = DefaultFlowRule.builder()
+                    .withSelector(DefaultTrafficSelector.builder().matchEthDst(dstMac).build())
+                    .withTreatment(DefaultTrafficTreatment.builder().setOutput(outPort).build())
+                    .forDevice(cp.deviceId()).withPriority(PacketPriority.REACTIVE.priorityValue())
+                    .fromApp(appId).build();
+                flowRuleService.applyFlowRules(fr);
+                pc.send();
+             } else {
+                flood(pc);
+             }
 
             /**
              * * HINT: install FlowRule using the following method(more detailed API usage can be found in ONOS website)
@@ -218,6 +231,7 @@ public class LayerTwoManager implements LayerTwoService {
              *              .forDevice(cp.deviceId()).withPriority(PacketPriority.REACTIVE.priorityValue())
              *              .fromApp(appId).build();
              */
+            
         }
 
         /**

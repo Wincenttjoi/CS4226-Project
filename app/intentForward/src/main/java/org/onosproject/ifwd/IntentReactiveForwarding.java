@@ -21,8 +21,10 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.MacAddress;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
+import org.onosproject.net.DeviceId;
 import org.onosproject.net.Host;
 import org.onosproject.net.HostId;
 import org.onosproject.net.PortNumber;
@@ -145,6 +147,18 @@ public class IntentReactiveForwarding {
              * [STEP 1] Extract Ethernet header
              * more specifically, we need the source and destination IP address
              */
+            ethPkt = pkt.parsed();
+            
+            if (ethPkt == null) {
+                return;
+            }
+
+            MacAddress pktSrc = ethPkt.getSourceMAC();
+            MacAddress pktDst = ethPkt.getDestinationMAC();
+            
+            HostId srcId = HostId.hostId(pktSrc);
+            HostId dstId = HostId.hostId(pktDst);
+
 
             /** 
              * [STEP 2] Do we know where the destination host is and which host should we hand this packet to?
@@ -152,6 +166,17 @@ public class IntentReactiveForwarding {
              * Otherwise, just forward it to the next hop and processing is done.
              * * HINT: use setUpConnectivity() to install flow rule
              */
+
+        
+            Host dstHost = hostService.getHost(dstId);
+            if (dstHost == null) {
+                flood(context);
+                return;
+            }
+
+            setUpConnectivity(context, srcId, dstId);
+            forwardPacketToDst(context, dstHost);
+    
         }
     }
 
@@ -162,7 +187,8 @@ public class IntentReactiveForwarding {
      * @param portNumber the specified port through which this packet will be send out
      */
     private void packetOut(PacketContext context, PortNumber portNumber) {
-
+        context.treatmentBuilder().setOutput(portNumber);
+        context.send();
     }
 
     /**
@@ -187,6 +213,11 @@ public class IntentReactiveForwarding {
      */
     private void forwardPacketToDst(PacketContext context, Host dst) {
         /* Build and send out packet to destination host */
+        DeviceId sendThroughDeviceId = dst.location().deviceId();
+        TrafficTreatment trfcTreatment = DefaultTrafficTreatment.builder().setOutput(dst.location().port()).build();
+        OutboundPacket pktToSend = new DefaultOutboundPacket(sendThroughDeviceId,
+                                                          trfcTreatment, context.inPacket().unparsed());
+        packetService.emit(pktToSend);
     }
 
     /* Install a rule forwarding the packet to the specified port. */
@@ -207,7 +238,15 @@ public class IntentReactiveForwarding {
                 /* This intent has been withdrawn, just insert it once more! */
 
                 /* Build host-to-host intent and submit to Intent Service */
-                HostToHostIntent hostIntent;
+                HostToHostIntent hostIntent = HostToHostIntent.builder()
+                                                                .appId(appId)
+                                                                .key(key)
+                                                                .one(srcId)
+                                                                .two(dstId)
+                                                                .selector(selector)
+                                                                .treatment(treatment)
+                                                                .build();
+                intentService.submit(hostIntent);
             } else if (intentService.getIntentState(key) == IntentState.FAILED) {
                 /* Special case: handle failed intent */
                 TrafficSelector objectiveSelector = DefaultTrafficSelector.builder()
@@ -231,7 +270,15 @@ public class IntentReactiveForwarding {
              */
 
             /* Build host-to-host intent and submit to Intent Service */
-            HostToHostIntent hostIntent;
+            HostToHostIntent hostIntent = HostToHostIntent.builder()
+                                                            .appId(appId)
+                                                            .key(key)
+                                                            .one(srcId)
+                                                            .two(dstId)
+                                                            .selector(selector)
+                                                            .treatment(treatment)
+                                                            .build();
+            intentService.submit(hostIntent);
         }
 
     }

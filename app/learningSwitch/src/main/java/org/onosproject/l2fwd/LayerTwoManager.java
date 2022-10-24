@@ -209,6 +209,19 @@ public class LayerTwoManager implements LayerTwoService {
              *      Insert the FlowRule to the designated output port.
              * Otherwise, we haven't learnt the output port yet. We need to flood this packet to all the ports.
              */
+             if (macTable.containsKey(dstMac)) {
+               outPort = macTable.get(dstMac).getPortNumber();
+               pc.treatmentBuilder().setOutput(outPort);
+               FlowRule fr = DefaultFlowRule.builder()
+                    .withSelector(DefaultTrafficSelector.builder().matchEthDst(dstMac).build())
+                    .withTreatment(DefaultTrafficTreatment.builder().setOutput(outPort).build())
+                    .forDevice(cp.deviceId()).withPriority(PacketPriority.REACTIVE.priorityValue())
+                    .fromApp(appId).build();
+                flowRuleService.applyFlowRules(fr);
+                pc.send();
+             } else {
+                flood(pc);
+             }
 
             /**
              * * HINT: install FlowRule using the following method(more detailed API usage can be found in ONOS website)
@@ -218,6 +231,7 @@ public class LayerTwoManager implements LayerTwoService {
              *              .forDevice(cp.deviceId()).withPriority(PacketPriority.REACTIVE.priorityValue())
              *              .fromApp(appId).build();
              */
+            
         }
 
         /**

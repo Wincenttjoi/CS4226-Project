@@ -18,6 +18,24 @@ class TreeTopo( Topo ):
         # Load configuration of Hosts, Switches, and Links
         # You can write other functions as you need.
 
+        with open("ring.in") as fin:
+            next(fin)
+            for line in fin:
+                temp = line.split(",")
+                left = temp[0]
+                right = temp[1].strip()
+                if (left[0] == "h"):
+                    self.addHost(left)
+                else:
+                    self.addSwitch(left)
+
+                if (right[0] == "h"):
+                    self.addHost(right)
+                else:
+                    self.addSwitch(right)
+
+                self.addLink(left, right)
+        fin.close()
         # Add hosts
         # > self.addHost('h%d' % [HOST NUMBER])
 

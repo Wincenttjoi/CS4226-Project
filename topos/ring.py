@@ -1,4 +1,5 @@
 #!/usr/bin/python
+#test 
 
 import os, sys
 from mininet.topo import Topo
@@ -36,6 +37,7 @@ class TreeTopo( Topo ):
 
                 self.addLink(left, right)
         fin.close()
+
         # Add hosts
         # > self.addHost('h%d' % [HOST NUMBER])
 

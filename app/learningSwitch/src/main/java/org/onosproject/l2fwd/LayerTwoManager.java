@@ -109,13 +109,13 @@ public class LayerTwoManager implements LayerTwoService {
                     .withSelector(DefaultTrafficSelector.builder()
                             .matchEthType(TYPE_IPV4)
                             .matchIPProtocol(IPv4.PROTOCOL_TCP)
-                            .matchIPSrc(firstIpAddress.toIpPrefix())
-                            .matchIPDst(secondIpAddress.toIpPrefix())
-                            .matchTcpDst(TpPort.tpPort((int) portNumber.toLong()))
+                            .matchIPSrc(srcIpAddress.toIpPrefix())
+                            .matchIPDst(dstIpAddress.toIpPrefix())
+                            .matchTcpDst(TpPort.tpPort((int) dstPort.toLong()))
                             .build())
                     .withTreatment(DefaultTrafficTreatment.builder().drop().build())
                     .forDevice(d.id()).withPriority(PacketPriority.CONTROL.priorityValue())
-                    .makeTemporary(30)
+                    .makePermanent()
                     .fromApp(appId).build();
             log.info(" On device {} install firewall rule: {}", d.id(), fr);
             flowRuleService.applyFlowRules(fr);
@@ -209,13 +209,16 @@ public class LayerTwoManager implements LayerTwoService {
              *      Insert the FlowRule to the designated output port.
              * Otherwise, we haven't learnt the output port yet. We need to flood this packet to all the ports.
              */
-             if (macTable.containsKey(dstMac)) {
-               outPort = macTable.get(dstMac).getPortNumber();
+             MacTableEntry dstMacEntry = macTable.get(dstMac);
+             
+             if (dstMacEntry != null) {
+               outPort = dstMacEntry.getPortNumber();
                pc.treatmentBuilder().setOutput(outPort);
                FlowRule fr = DefaultFlowRule.builder()
                     .withSelector(DefaultTrafficSelector.builder().matchEthDst(dstMac).build())
                     .withTreatment(DefaultTrafficTreatment.builder().setOutput(outPort).build())
                     .forDevice(cp.deviceId()).withPriority(PacketPriority.REACTIVE.priorityValue())
+                    .makeTemporary(60)
                     .fromApp(appId).build();
                 flowRuleService.applyFlowRules(fr);
                 pc.send();

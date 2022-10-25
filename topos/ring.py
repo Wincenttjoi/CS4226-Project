@@ -38,11 +38,6 @@ class TreeTopo( Topo ):
                 self.addLink(left, right)
         fin.close()
 
-        # self.addHost("h1")
-        # self.addSwitch("s1")
-        # self.addLink("h1", "s1")
-
-
         # Add hosts
         # > self.addHost('h%d' % [HOST NUMBER])
 
